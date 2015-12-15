@@ -17,5 +17,6 @@ setup(
 
     requires=[
         'pillow',
+        'helper_string',
     ],
 )
