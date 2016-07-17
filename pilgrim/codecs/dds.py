@@ -16,7 +16,10 @@ from PIL import Image, ImageFile
 
 from ..decoders import dxtc
 
-
+try:
+    xrange(1) # Python2
+except NameError:
+    xrange = range # Python 3
 
 
 # dwFlags constants
@@ -53,7 +56,7 @@ class DDS(ImageFile.ImageFile):
 
         # Check header
         header = self.fp.read(128)
-        if header[:4] != "DDS ":
+        if header[:4] != b"DDS ":
             raise ValueError("Not a DDS file")
 
         dwSize, dwFlags, dwHeight, dwWidth, dwPitchLinear, dwDepth, dwMipMapCount, ddpfPixelFormat, ddsCaps = unpack("<IIIIIII 44x 32s 16s 4x", header[4:])
@@ -75,7 +78,7 @@ class DDS(ImageFile.ImageFile):
 
         # check for DXT1
         if (pf_dwFlags & DDPF_FOURCC != 0):
-            if pf_dwFourCC == "DXT1":
+            if pf_dwFourCC == b"DXT1":
                 if (pf_dwFlags & DDPF_ALPHAPIXELS != 0):
                     raise NotImplementedError("DXT1 with Alpha not supported yet")
                 else:
@@ -97,10 +100,10 @@ class DDS(ImageFile.ImageFile):
         data = []
         self.fp.seek(128) # skip header
 
-        linesize = (self.size[0] + 3) / 4 * 8 # Number of data byte per row
+        linesize = (self.size[0] + 3) // 4 * 8 # Number of data byte per row
 
         baseoffset = 0
-        for yb in xrange((self.size[1] + 3) / 4):
+        for yb in xrange((self.size[1] + 3) // 4):
             linedata = self.fp.read(linesize)
             decoded = dxtc.decodeDXT1(linedata) # returns 4-tuple of RGB lines
             for d in decoded:
@@ -109,7 +112,8 @@ class DDS(ImageFile.ImageFile):
                 data.append(d[:self.size[0]*3])
 
         # Now build the final image from our data strings
-        data = "".join(data[:self.size[1]])
+        #data = "".join(data[:self.size[1]])
+        data = b"".join(data[:self.size[1]])
         self.im = Image.core.new(self.mode, self.size)
         # self.fromstring(data)
         self.frombytes(data)
