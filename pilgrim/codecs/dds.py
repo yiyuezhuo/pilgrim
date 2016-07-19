@@ -10,9 +10,11 @@ The DTX1 texture format is described at:
  http://oss.sgi.com/projects/ogl-sample/registry/EXT/texture_compression_s3tc.txt
 """
 
-from struct import unpack
+from struct import unpack, pack
 
 from PIL import Image, ImageFile
+
+
 
 from ..decoders import dxtc
 
@@ -89,9 +91,32 @@ class DDS(ImageFile.ImageFile):
 
         else:
             # XXX is this right? I don't have an uncompressed dds to play with
-            self.mode = "RGB"
+            _dwSize, _dwFlags, dwFourCC, dwRGBBitCount, dwRBitMask, dwGBitMask, dwBBitMask, dwABitMask = unpack('>IIIIIIII', ddpfPixelFormat)
+            _mode = [None, None, None, None]
+            for mask,channel in zip([dwRBitMask, dwGBitMask, dwBBitMask, dwABitMask],'RGBA'):
+                if mask == 0: # hack no-alpha case
+                    _mode[3] = channel
+                elif mask == 255:
+                    _mode[3] = channel
+                elif mask == 65280:
+                    _mode[2] = channel
+                elif mask == 16711680:
+                    _mode[1] = channel
+                elif mask == 4278190080:
+                    _mode[0] = channel
+                else:
+                    raise Exception('Unknow mask value')
+            
+            if _dwFlags % 2**25 != 0: #DDPF_ALPHAPIXELS
+                self.mode = "RGBA"
+                self._mode = ''.join(_mode)
+            else:
+                self.mode = 'RGB'
+                self._mode =''.join( _mode[:3])
+            
+            self.load = self._basicLoad
             # Construct the tile
-            self.tile = [("raw", (0, 0, dwWidth, dwHeight), 128, ("RGBX", dwPitchLinear - dwWidth, 1))]
+            #self.tile = [("raw", (0, 0, dwWidth, dwHeight), 128, ("RGBX", dwPitchLinear - dwWidth, 1))]
 
     def _loadDXTOpaque(self):
         if self._loaded: return
@@ -101,7 +126,8 @@ class DDS(ImageFile.ImageFile):
         self.fp.seek(128) # skip header
 
         linesize = (self.size[0] + 3) // 4 * 8 # Number of data byte per row
-
+        
+        
         baseoffset = 0
         for yb in xrange((self.size[1] + 3) // 4):
             linedata = self.fp.read(linesize)
@@ -118,3 +144,36 @@ class DDS(ImageFile.ImageFile):
         # self.fromstring(data)
         self.frombytes(data)
         self._loaded = 1
+    def _basicLoad(self):
+        if self._loaded: 
+            return
+        
+        self.fp.seek(128)
+        data = self.fp.read()
+        self.im = Image.core.new(self.mode, self.size)
+        self.frombytes(self._basic_decode(data, self._mode))
+        self._loaded = 1
+    def _basic_decode(self, data, mode='RGB'):
+        # data are bytes
+        #if mode in ['RGB','RGBA']: # base
+        #    return data 
+        len_mode = len(mode)
+        block_count = len(data)//len_mode
+        assert len(data) % len_mode == 0
+        
+        block_list = [data[i*len_mode : (i+1)*len_mode] for i in range(block_count)]
+        
+        r_index = mode.index('R')
+        g_index = mode.index('G')
+        b_index = mode.index('B')
+        
+        if len_mode == 3: # RBG,BRG...
+            new_block_list = [b''.join([pack('B',block[r_index]), pack('B',block[g_index]), pack('B',block[b_index])]) for block in block_list]
+            
+        elif len_mode == 4: #ARGB,GAGB...
+            a_index = mode.index('A')
+            new_block_list = [b''.join([pack('B',block[r_index]), pack('B',block[g_index]), pack('B',block[b_index]), pack('B',block[a_index])]) for block in block_list]
+            
+        return b''.join(new_block_list)
+
+        

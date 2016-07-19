@@ -23,7 +23,7 @@ def decodeDXT1(data, alpha=False):
 
     for block in xrange(blocks):
         # Decode next 8-byte block.
-        color0, color1, bits = unpack(b"<HHI", data[block*8:block*8+8])
+        color0, color1, bits = unpack(b"<HHI", data[block * 8 : block * 8 + 8])
 
         # color 0, packed 5-6-5
         r0 = ((color0 >> 11) & 0x1f) << 3
@@ -126,10 +126,10 @@ def decodeDXT5(data):
     """
 
     blocks = len(data) // 16  # number of blocks in row
-    finalColor = ["", "", "", ""]  # row accumulators
+    finalColor = [b"", b"", b"", b""]  # row accumulators
 
     for block in xrange(blocks):
-        block = data[block*16:block*16+16]
+        block = data[block * 16 : block * 16 + 16]
         # Decode next 16-byte block.
         alpha0, alpha1 = unpack(b"<BB", block[:2])
 
