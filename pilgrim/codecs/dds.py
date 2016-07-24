@@ -112,7 +112,6 @@ class DDS(ImageFile.ImageFile):
                 self._mode = ''.join(_mode)
             else:
                 self.mode = 'RGB'
-                print(_mode[:3])
                 self._mode =''.join( _mode[:3])
             
             self.load = self._basicLoad
