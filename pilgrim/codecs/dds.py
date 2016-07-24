@@ -91,27 +91,28 @@ class DDS(ImageFile.ImageFile):
 
         else:
             # XXX is this right? I don't have an uncompressed dds to play with
-            _dwSize, _dwFlags, dwFourCC, dwRGBBitCount, dwRBitMask, dwGBitMask, dwBBitMask, dwABitMask = unpack('>IIIIIIII', ddpfPixelFormat)
+            _dwSize, _dwFlags, dwFourCC, dwRGBBitCount, dwRBitMask, dwGBitMask, dwBBitMask, dwABitMask = unpack('<IIIIIIII', ddpfPixelFormat)
             _mode = [None, None, None, None]
             for mask,channel in zip([dwRBitMask, dwGBitMask, dwBBitMask, dwABitMask],'RGBA'):
-                if mask == 0: # hack no-alpha case
+                if mask == 0x00000000: # hack no-alpha case
                     _mode[3] = channel
-                elif mask == 255:
+                elif mask == 0xff000000:
                     _mode[3] = channel
-                elif mask == 65280:
+                elif mask == 0x00ff0000:
                     _mode[2] = channel
-                elif mask == 16711680:
+                elif mask == 0x0000ff00:
                     _mode[1] = channel
-                elif mask == 4278190080:
+                elif mask == 0x000000ff:
                     _mode[0] = channel
                 else:
                     raise Exception('Unknow mask value')
             
-            if _dwFlags % 2**25 != 0: #DDPF_ALPHAPIXELS
+            if _dwFlags % 2 != 0: #DDPF_ALPHAPIXELS
                 self.mode = "RGBA"
                 self._mode = ''.join(_mode)
             else:
                 self.mode = 'RGB'
+                print(_mode[:3])
                 self._mode =''.join( _mode[:3])
             
             self.load = self._basicLoad
